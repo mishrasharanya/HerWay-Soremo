@@ -2,33 +2,29 @@ import React from 'react';
 
 const Legend = () => {
   return (
-    <div className="floating-ui legend">
-      <div className="legend-header">
-        <div className="legend-title">HerWay Chicago</div>
-        <div className="legend-subtitle">Community Safety Signals</div>
-      </div>
+    <div className="legend" data-testid="legend">
+      <div className="legend-title">HerWay Chicago</div>
+      <div className="legend-subtitle">Community Awareness Guide</div>
       
       <div className="legend-items">
-        <div className="legend-item">
+        <div className="legend-item" data-testid="legend-high">
           <div className="legend-dot high"></div>
-          <span>High Risk</span>
+          <span>Higher Activity</span>
         </div>
-        
-        <div className="legend-item">
+        <div className="legend-item" data-testid="legend-medium">
           <div className="legend-dot medium"></div>
-          <span>Medium Risk</span>
+          <span>Moderate Activity</span>
         </div>
-        
-        <div className="legend-item">
+        <div className="legend-item" data-testid="legend-low">
           <div className="legend-dot low"></div>
-          <span>Lower Risk</span>
+          <span>Lower Activity</span>
         </div>
       </div>
 
       <div className="legend-footer">
-        <div className="legend-note">Circle size = incident volume</div>
-        <div className="legend-note">Hover to preview</div>
-        <div className="legend-note">Click for full analysis</div>
+        Circle size = incident volume<br/>
+        Hover to preview<br/>
+        Click for full analysis
       </div>
     </div>
   );

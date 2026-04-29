@@ -6,12 +6,13 @@ const ChatbotPanel = ({ selectedNeighborhood }) => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const messagesEndRef = useRef(null);
 
   const suggestedPrompts = [
     'Quick summary of this area',
-    'Is it safe at night?',
-    'Top 3 safety tips',
+    'What is it like at night?',
+    'Top 3 tips for visitors',
     'Best times to visit'
   ];
 
@@ -19,47 +20,24 @@ const ChatbotPanel = ({ selectedNeighborhood }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const buildContext = () => {
-    if (!selectedNeighborhood) {
-      return 'You are HerWay, a Chicago neighborhood guide. Be brief. User needs to select a neighborhood first.';
+  // Generate session ID on first open
+  useEffect(() => {
+    if (isOpen && !sessionId) {
+      setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
     }
-    
-    const n = selectedNeighborhood;
-    return `You are HerWay, a friendly Chicago neighborhood guide.
+  }, [isOpen, sessionId]);
 
-RULES:
-- Keep responses to 2-3 short sentences MAX
-- Use bullet points for lists
-- Be helpful, not scary
-- No long paragraphs
-
-NEIGHBORHOOD: ${n.neighborhood}
-- Incidents/year: ${n.crime_total_incidents || 'N/A'}
-- Common issues: ${n.crime_top_types || 'N/A'}
-- Peak time: ${n.crime_peak_hour || 'N/A'} on ${n.crime_peak_day || 'N/A'}s
-- Night incidents: ${n.crime_night_pct || 'N/A'}%
-- 311 complaints: ${n.requests_311_total || 'N/A'}
-- Top complaint: ${n.most_common_complaint || 'N/A'}
-
-Answer concisely in 2-3 sentences.`;
-  };
-
-  // Format response with basic styling
   const formatResponse = (text) => {
     return text
       .split('\n')
       .map((line, i) => {
-        // Bullet points
         if (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*')) {
           return <div key={i} className="chat-bullet">{line.trim().substring(1).trim()}</div>;
         }
-        // Numbered lists
         if (/^\d+\./.test(line.trim())) {
           return <div key={i} className="chat-bullet">{line.trim()}</div>;
         }
-        // Empty lines
         if (!line.trim()) return <br key={i} />;
-        // Regular text
         return <p key={i} style={{ margin: '4px 0' }}>{line}</p>;
       });
   };
@@ -67,39 +45,45 @@ Answer concisely in 2-3 sentences.`;
   const handleSendMessage = async (text) => {
     if (!text.trim() || isLoading) return;
 
+    // Build the question with neighborhood context if selected
+    let question = text;
+    if (selectedNeighborhood) {
+      question = `About ${selectedNeighborhood.neighborhood}: ${text}`;
+    }
+
     const userMessage = { role: 'user', content: text };
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
-      const prompt = `${buildContext()}\n\nUser: ${text}\n\nAssistant (keep it brief):`;
-      
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const response = await fetch('https://herway-89n6.onrender.com/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3',
-          prompt: prompt,
-          stream: false,
-          options: {
-            temperature: 0.7,
-            num_predict: 150  // Limits response length
-          }
+          question: question,
+          session_id: sessionId || 'default'
         })
       });
 
-      if (!response.ok) throw new Error('Failed');
+      if (!response.ok) throw new Error('Failed to get response');
 
       const data = await response.json();
+      
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.response || 'Sorry, no response.'
+        content: data.answer || 'Sorry, I could not process that request.'
       }]);
+
+      // Update session ID if returned
+      if (data.session_id) {
+        setSessionId(data.session_id);
+      }
     } catch (error) {
+      console.error('Chat error:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '⚠️ Connection error. Is Ollama running?'
+        content: '⚠️ Connection error. Please try again.'
       }]);
     } finally {
       setIsLoading(false);
@@ -108,11 +92,14 @@ Answer concisely in 2-3 sentences.`;
 
   const handlePromptClick = (prompt) => handleSendMessage(prompt);
   const handleSubmit = (e) => { e.preventDefault(); handleSendMessage(inputValue); };
-  const clearChat = () => setMessages([]);
+  const clearChat = () => {
+    setMessages([]);
+    setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  };
 
   if (!isOpen) {
     return (
-      <button className="chatbot-fab" onClick={() => setIsOpen(true)}>
+      <button className="chatbot-fab" onClick={() => setIsOpen(true)} data-testid="chatbot-fab">
         <Sparkles size={22} />
         <span>Ask HerWay</span>
       </button>
@@ -120,7 +107,7 @@ Answer concisely in 2-3 sentences.`;
   }
 
   return (
-    <div className="chatbot-panel">
+    <div className="chatbot-panel" data-testid="chatbot-panel">
       <div className="chatbot-header">
         <div className="chatbot-header-icon">
           <Sparkles size={20} />
@@ -132,13 +119,13 @@ Answer concisely in 2-3 sentences.`;
               Clear
             </button>
           )}
-          <button className="chatbot-close" onClick={() => setIsOpen(false)}>
+          <button className="chatbot-close" onClick={() => setIsOpen(false)} data-testid="chatbot-close">
             <X size={18} />
           </button>
         </div>
       </div>
 
-      <div className="chatbot-body">
+      <div className="chatbot-body" data-testid="chatbot-body">
         {messages.length === 0 ? (
           <>
             <div className="chatbot-welcome">
@@ -148,7 +135,7 @@ Answer concisely in 2-3 sentences.`;
             </div>
 
             {selectedNeighborhood ? (
-              <div className="chatbot-context selected">
+              <div className="chatbot-context selected" data-testid="chatbot-context">
                 <div className="chatbot-context-label">📍 Selected</div>
                 <div className="chatbot-context-value">{selectedNeighborhood.neighborhood}</div>
               </div>
@@ -161,7 +148,13 @@ Answer concisely in 2-3 sentences.`;
 
             <div className="suggested-prompts">
               {suggestedPrompts.map((prompt, idx) => (
-                <button key={idx} className="suggested-prompt" onClick={() => handlePromptClick(prompt)} disabled={isLoading}>
+                <button 
+                  key={idx} 
+                  className="suggested-prompt" 
+                  onClick={() => handlePromptClick(prompt)} 
+                  disabled={isLoading}
+                  data-testid={`suggested-prompt-${idx}`}
+                >
                   {prompt}
                 </button>
               ))}
@@ -176,7 +169,7 @@ Answer concisely in 2-3 sentences.`;
             )}
             
             {messages.map((msg, idx) => (
-              <div key={idx} className={`chat-message ${msg.role}`}>
+              <div key={idx} className={`chat-message ${msg.role}`} data-testid={`chat-message-${idx}`}>
                 {msg.role === 'assistant' ? formatResponse(msg.content) : msg.content}
               </div>
             ))}
@@ -197,12 +190,18 @@ Answer concisely in 2-3 sentences.`;
         <input
           type="text"
           className="chatbot-input"
-          placeholder="Ask something..."
+          placeholder={selectedNeighborhood ? `Ask about ${selectedNeighborhood.neighborhood}...` : "Ask about any Chicago neighborhood..."}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           disabled={isLoading}
+          data-testid="chatbot-input"
         />
-        <button type="submit" className="chatbot-send" disabled={!inputValue.trim() || isLoading}>
+        <button 
+          type="submit" 
+          className="chatbot-send" 
+          disabled={!inputValue.trim() || isLoading}
+          data-testid="chatbot-send"
+        >
           {isLoading ? <Loader2 size={18} className="spinner" /> : <Send size={18} />}
         </button>
       </form>
@@ -211,3 +210,4 @@ Answer concisely in 2-3 sentences.`;
 };
 
 export default ChatbotPanel;
+

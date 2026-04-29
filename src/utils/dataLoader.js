@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 
+// Normalize neighborhood names for matching between CSV and GeoJSON
 export const normalizeNeighborhoodName = (name) => {
   if (!name) return '';
   return name
@@ -9,6 +10,7 @@ export const normalizeNeighborhoodName = (name) => {
     .replace(/\s+/g, ' ');
 };
 
+// Load and parse the CSV data
 export const loadCSVData = async (csvUrl) => {
   try {
     const response = await fetch(csvUrl);
@@ -20,6 +22,7 @@ export const loadCSVData = async (csvUrl) => {
         skipEmptyLines: true,
         dynamicTyping: true,
         complete: (results) => {
+          // Create a lookup map by normalized neighborhood name
           const dataMap = {};
           results.data.forEach(row => {
             if (row.neighborhood) {
@@ -43,6 +46,7 @@ export const loadCSVData = async (csvUrl) => {
   }
 };
 
+// Load GeoJSON data
 export const loadGeoJSON = async (geoJsonUrl) => {
   try {
     const response = await fetch(geoJsonUrl);
@@ -54,6 +58,7 @@ export const loadGeoJSON = async (geoJsonUrl) => {
   }
 };
 
+// Merge CSV data with GeoJSON features
 export const mergeDataWithGeoJSON = (geoJson, csvDataMap) => {
   const mergedFeatures = geoJson.features.map(feature => {
     const geoName = normalizeNeighborhoodName(feature.properties.community);
@@ -75,6 +80,7 @@ export const mergeDataWithGeoJSON = (geoJson, csvDataMap) => {
   };
 };
 
+// Get risk level color
 export const getRiskColor = (riskLevel) => {
   if (!riskLevel) return '#CCCCCC';
   
@@ -85,6 +91,7 @@ export const getRiskColor = (riskLevel) => {
   return '#CCCCCC';
 };
 
+// Get risk level class name
 export const getRiskClass = (riskLevel) => {
   if (!riskLevel) return '';
   
@@ -95,22 +102,27 @@ export const getRiskClass = (riskLevel) => {
   return '';
 };
 
+// Format number for display
 export const formatNumber = (num) => {
   if (num === null || num === undefined || isNaN(num)) return 'N/A';
   return Number(num).toLocaleString();
 };
 
+// Format percentage
 export const formatPercent = (num) => {
   if (num === null || num === undefined || isNaN(num)) return 'N/A';
   return `${Number(num).toFixed(1)}%`;
 };
 
+// Format hours
 export const formatHours = (num) => {
   if (num === null || num === undefined || isNaN(num)) return 'N/A';
   return `${Number(num).toFixed(1)} hrs`;
 };
 
+// Format score (0-1 to percentage or decimal)
 export const formatScore = (num) => {
   if (num === null || num === undefined || isNaN(num)) return 'N/A';
   return Number(num).toFixed(3);
 };
+
